@@ -145,6 +145,8 @@ For a brand new Railway volume, keep normal app startup clean and run the one-ti
 npm run bootstrap
 ```
 
+If Railway has previously built the app with the wrong native SQLite binary, redeploy once with cache cleared after switching to Node 20.
+
 This runs the existing seed script against the configured `DATABASE_PATH`.
 
 Because the seed checks whether tasks already exist, it is safe to re-run and will skip if the database is already initialized.

@@ -12,8 +12,8 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\" --names \"SERVER,CLIENT\" --prefix-colors \"cyan,magenta\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
-    "postinstall": "cd server && npm install && cd ../client && npm install",
+    "install:all": "npm install && cd server && npm install && npm rebuild better-sqlite3 && cd ../client && npm install",
+    "postinstall": "cd server && npm install && npm rebuild better-sqlite3 && cd ../client && npm install",
     "seed": "cd server && node seed.js"
   },
   "devDependencies": {
