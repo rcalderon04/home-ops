@@ -31,6 +31,7 @@ export default function WeeklyPlanner({ currentWeek, setCurrentWeek, navigate })
     try {
       await api.updateWeekItem(itemId, { status: newStatus });
       setData(prev => {
+        if (!prev) return prev;
         const nextPlanned = prev.planned.map(p => p.id === itemId
           ? { ...p, status: newStatus, is_overdue: newStatus === 'Completed' ? false : p.is_overdue }
           : p
@@ -47,10 +48,13 @@ export default function WeeklyPlanner({ currentWeek, setCurrentWeek, navigate })
   async function updateField(itemId, field, value) {
     try {
       await api.updateWeekItem(itemId, { [field]: value });
-      setData(prev => ({
-        ...prev,
-        planned: prev.planned.map(p => p.id === itemId ? { ...p, [field]: value } : p)
-      }));
+      setData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          planned: prev.planned.map(p => p.id === itemId ? { ...p, [field]: value } : p)
+        };
+      });
     } catch (e) { alert('Error: ' + e.message); }
   }
 
@@ -58,11 +62,15 @@ export default function WeeklyPlanner({ currentWeek, setCurrentWeek, navigate })
     if (!confirm('Remove from this week?')) return;
     try {
       await api.removeFromWeek(itemId);
-      setData(prev => ({
-        ...prev,
-        planned: prev.planned.filter(p => p.id !== itemId),
-        stats: recalcStats(prev.planned.filter(p => p.id !== itemId))
-      }));
+      setData(prev => {
+        if (!prev) return prev;
+        const nextPlanned = prev.planned.filter(p => p.id !== itemId);
+        return {
+          ...prev,
+          planned: nextPlanned,
+          stats: recalcStats(nextPlanned)
+        };
+      });
     } catch (e) { alert('Error: ' + e.message); }
   }
 
@@ -77,13 +85,17 @@ export default function WeeklyPlanner({ currentWeek, setCurrentWeek, navigate })
         default_owner: task.default_owner,
         points_earned: task.points
       });
-      setData(prev => ({
-        ...prev,
-        planned: [...prev.planned, item],
-        suggestions: prev.suggestions.filter(s => s.id !== task.id),
-        advanceTasks: prev.advanceTasks.filter(a => a.id !== task.id),
-        stats: recalcStats([...prev.planned, item])
-      }));
+      setData(prev => {
+        if (!prev) return prev;
+        const nextPlanned = [...prev.planned, item];
+        return {
+          ...prev,
+          planned: nextPlanned,
+          suggestions: prev.suggestions.filter(s => s.id !== task.id),
+          advanceTasks: prev.advanceTasks.filter(a => a.id !== task.id),
+          stats: recalcStats(nextPlanned)
+        };
+      });
     } catch (e) { alert('Error: ' + e.message); }
   }
 
@@ -127,6 +139,8 @@ export default function WeeklyPlanner({ currentWeek, setCurrentWeek, navigate })
 
   if (loading) return <div className="loading">⏳ Loading planner…</div>;
   if (error) return <div className="page"><div className="card" style={{color:'var(--danger)'}}>Error: {error}</div></div>;
+
+  if (!data) return <div className="page"><div className="card">Planner data is not available yet.</div></div>;
 
   const { planned, suggestions, advanceTasks, stats } = data;
 
