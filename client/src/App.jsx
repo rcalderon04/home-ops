@@ -7,11 +7,11 @@ import Dashboard from './pages/Dashboard.jsx';
 import Rewards from './pages/Rewards.jsx';
 
 const NAV = [
-  { key: 'weekly', icon: 'Planner', label: 'Weekly Planner' },
-  { key: 'tasks', icon: 'Tasks', label: 'Task Library' },
-  { key: 'new-task', icon: 'New', label: 'New Task' },
-  { key: 'dashboard', icon: 'Stats', label: 'Analytics' },
-  { key: 'rewards', icon: 'Rewards', label: 'Rewards' }
+  { key: 'weekly', icon: 'W', label: 'Weekly Planner' },
+  { key: 'tasks', icon: 'T', label: 'Task Library' },
+  { key: 'new-task', icon: '+', label: 'New Task' },
+  { key: 'dashboard', icon: 'A', label: 'Analytics' },
+  { key: 'rewards', icon: 'R', label: 'Rewards' }
 ];
 
 export default function App() {

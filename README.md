@@ -110,10 +110,17 @@ Use these settings:
 - Build command: `npm run build`
 - Start command: `npm start`
 
+Use Node 20 LTS for Railway. If Railway is defaulting to Node 22, set:
+
+```bash
+NIXPACKS_NODE_VERSION=20
+```
+
 Set these environment variables:
 
 ```bash
 NODE_ENV=production
+NIXPACKS_NODE_VERSION=20
 AUTO_SEED=false
 DATABASE_PATH=/data/home-ops.db
 APP_PASSWORD=choose-a-strong-shared-password
