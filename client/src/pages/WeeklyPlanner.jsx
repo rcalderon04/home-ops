@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { api, addDays, formatWeekRange, STATUS_OPTIONS, DAYS_OPTIONS, OWNER_OPTIONS } from '../api.js';
+import { api, addDays, formatDate, formatWeekRange, STATUS_OPTIONS, DAYS_OPTIONS, OWNER_OPTIONS } from '../api.js';
 
 const STATUS_CLASS = {
   'Not Started': 'not-started',
@@ -30,11 +30,17 @@ export default function WeeklyPlanner({ currentWeek, setCurrentWeek, navigate })
   async function updateStatus(itemId, newStatus) {
     try {
       await api.updateWeekItem(itemId, { status: newStatus });
-      setData(prev => ({
-        ...prev,
-        planned: prev.planned.map(p => p.id === itemId ? { ...p, status: newStatus } : p),
-        stats: recalcStats(prev.planned.map(p => p.id === itemId ? { ...p, status: newStatus } : p))
-      }));
+      setData(prev => {
+        const nextPlanned = prev.planned.map(p => p.id === itemId
+          ? { ...p, status: newStatus, is_overdue: newStatus === 'Completed' ? false : p.is_overdue }
+          : p
+        );
+        return {
+          ...prev,
+          planned: nextPlanned,
+          stats: recalcStats(nextPlanned)
+        };
+      });
     } catch (e) { alert('Error updating status: ' + e.message); }
   }
 
@@ -205,13 +211,27 @@ function TaskItem({ item, onStatus, onField, onRemove, onToggleSubs, showSubtask
   const [editing, setEditing] = useState(false);
   const hasSubtasks = item.split_into_subtasks === 'Yes';
   const statusClass = STATUS_CLASS[item.status] || 'not-started';
+  const carriedLabel = item.carried_forward && item.source_week_start !== item.display_week_start
+    ? `Carried from week of ${formatShortDate(item.source_week_start)}`
+    : null;
 
   return (
-    <div className="task-item" style={item.status === 'Completed' ? { opacity: 0.6 } : {}}>
+    <div className={`task-item${item.is_overdue ? ' task-item-overdue' : ''}`} style={item.status === 'Completed' ? { opacity: 0.6 } : {}}>
       <div className="task-item-header">
         <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
             <span className="task-item-name">{item.task_name}</span>
+            {item.is_overdue && (
+              <span className="task-flag overdue" title={item.due_date ? `Overdue since ${formatDate(item.due_date)}` : 'Overdue'}>
+                <span className="task-flag-icon">!</span>
+                Overdue
+              </span>
+            )}
+            {item.carried_forward && (
+              <span className="task-flag neutral" title={carriedLabel || 'Carried forward from a prior week'}>
+                Carryover
+              </span>
+            )}
             {hasSubtasks && (
               <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
                 onClick={() => onToggleSubs(item.task_id)}>
@@ -221,11 +241,13 @@ function TaskItem({ item, onStatus, onField, onRemove, onToggleSubs, showSubtask
           </div>
           <div className="task-item-meta">
             <span className="category-pill">{item.category}</span>
+            {item.due_date && <span>Due {formatShortDate(item.due_date)}</span>}
             {item.planned_day && <span>📆 {item.planned_day}</span>}
             {item.est_minutes && <span>⏱ {item.est_minutes} min</span>}
             {item.owner && <span>👤 {item.owner}</span>}
             {item.points_earned && <span>⭐ {item.points_earned} pts</span>}
           </div>
+          {carriedLabel && <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-2)' }}>{carriedLabel}</div>}
           {item.notes && <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-2)', fontStyle: 'italic' }}>{item.notes}</div>}
         </div>
         <div className="task-item-actions">
@@ -344,4 +366,12 @@ function recalcStats(planned) {
     totalMinutes: planned.reduce((s, p) => s + (p.est_minutes || 0), 0),
     totalPoints: planned.filter(p => p.status === 'Completed').reduce((s, p) => s + (p.points_earned || 0), 0)
   };
+}
+
+function formatShortDate(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
 }

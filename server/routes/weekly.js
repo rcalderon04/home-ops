@@ -11,16 +11,56 @@ router.get('/', (req, res) => {
 
   const weekStart = toMonday(week);
   const weekEnd = addDays(weekStart, 6);
+  const today = new Date().toISOString().split('T')[0];
+  const currentWeekStart = toMonday(today);
 
-  // 1. All planned items for this week
-  const planned = db.prepare(`
+  // 1. Planned items saved directly on this week
+  const exactPlanned = db.prepare(`
     SELECT wp.*, t.cadence_type, t.split_into_subtasks, t.tools_needed,
-           t.products_needed, t.safety_notes, t.difficulty
+           t.products_needed, t.safety_notes, t.difficulty,
+           COALESCE(t.next_due_date, t.target_date) AS due_date
     FROM weekly_plan_items wp
     LEFT JOIN tasks t ON wp.task_id = t.id
     WHERE wp.week_start = ?
     ORDER BY wp.sort_order ASC, wp.planned_day ASC
   `).all(weekStart);
+
+  const exactKeys = new Set(exactPlanned.map(getPlanKey));
+  const historicalCandidates = db.prepare(`
+    SELECT wp.*, t.cadence_type, t.split_into_subtasks, t.tools_needed,
+           t.products_needed, t.safety_notes, t.difficulty,
+           COALESCE(t.next_due_date, t.target_date) AS due_date
+    FROM weekly_plan_items wp
+    LEFT JOIN tasks t ON wp.task_id = t.id
+    WHERE wp.week_start < ?
+      AND wp.status != 'Completed'
+    ORDER BY wp.week_start DESC, wp.sort_order ASC, wp.created_at DESC
+  `).all(weekStart);
+
+  const carried = [];
+  const seenCarryKeys = new Set();
+  for (const item of historicalCandidates) {
+    const key = getPlanKey(item);
+    if (exactKeys.has(key) || seenCarryKeys.has(key)) continue;
+
+    const displayWeekStart = getDisplayWeekStart(item, currentWeekStart, today);
+    if (displayWeekStart !== weekStart) continue;
+
+    seenCarryKeys.add(key);
+    carried.push(enrichPlannedItem(item, currentWeekStart, today, {
+      carried_forward: true,
+      source_week_start: item.week_start,
+      display_week_start: displayWeekStart
+    }));
+  }
+
+  const planned = [
+    ...exactPlanned.map(item => enrichPlannedItem(item, currentWeekStart, today)),
+    ...carried.map((item, index) => ({
+      ...item,
+      sort_order: (exactPlanned.length + 1) + index
+    }))
+  ];
 
   const plannedTaskIds = new Set(planned.map(p => p.task_id).filter(Boolean));
 
@@ -175,6 +215,56 @@ function generateNextId(db) {
 function getNextSortOrder(db, weekStart) {
   const max = db.prepare('SELECT MAX(sort_order) as m FROM weekly_plan_items WHERE week_start = ?').get(weekStart);
   return (max?.m || 0) + 1;
+}
+
+function getPlanKey(item) {
+  return item.task_id ? `task:${item.task_id}` : `item:${item.id}`;
+}
+
+function enrichPlannedItem(item, currentWeekStart, today, overrides = {}) {
+  const dueDate = item.due_date || null;
+  const isOverdue = Boolean(
+    dueDate &&
+    dueDate < today &&
+    item.status !== 'Completed'
+  );
+
+  return {
+    ...item,
+    due_date: dueDate,
+    is_overdue: isOverdue,
+    overdue_icon: isOverdue ? '!' : null,
+    overdue_days: isOverdue ? diffDays(dueDate, today) : 0,
+    carried_forward: false,
+    source_week_start: item.week_start,
+    display_week_start: getDisplayWeekStart(item, currentWeekStart, today),
+    ...overrides
+  };
+}
+
+function getDisplayWeekStart(item, currentWeekStart, today) {
+  const dueDate = item.due_date || null;
+  const baseWeek = item.week_start;
+
+  if (!dueDate) {
+    return maxDate(baseWeek, currentWeekStart);
+  }
+
+  if (dueDate < today) {
+    return currentWeekStart;
+  }
+
+  return maxDate(baseWeek, toMonday(dueDate));
+}
+
+function maxDate(a, b) {
+  return a > b ? a : b;
+}
+
+function diffDays(startDate, endDate) {
+  const start = new Date(startDate + 'T00:00:00Z');
+  const end = new Date(endDate + 'T00:00:00Z');
+  return Math.max(0, Math.floor((end - start) / 86400000));
 }
 
 function toMonday(dateStr) {
