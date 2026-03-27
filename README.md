@@ -93,17 +93,70 @@ DELETE /api/subtasks/:id
 
 ---
 
-## Deployment (later)
+## Deploy To Railway
 
-When ready to deploy to a web server:
+This app works well on Railway as a single Node service plus a persistent volume for SQLite.
+
+### 1. Create the Railway service
+
+- Create a new project from this repo
+- Add a volume and mount it at `/data`
+- Railway should detect the root `package.json`
+
+### 2. Configure the service
+
+Use these settings:
+
+- Build command: `npm run build`
+- Start command: `npm start`
+
+Set these environment variables:
 
 ```bash
-# Build the frontend
-cd client && npm run build
-
-# Set environment and run
-cd ../server
-NODE_ENV=production PORT=80 node index.js
+NODE_ENV=production
+AUTO_SEED=false
+DATABASE_PATH=/data/home-ops.db
+APP_PASSWORD=choose-a-strong-shared-password
+AUTH_SECRET=generate-a-long-random-secret
 ```
 
-The Express server will serve the built frontend from `client/dist/`.
+Optional:
+
+```bash
+APP_ORIGIN=https://your-railway-domain.up.railway.app
+```
+
+`APP_PASSWORD` enables the shared login screen.
+
+`AUTH_SECRET` is used to sign login tokens. Use a long random value in Railway.
+
+### 3. First-time bootstrap
+
+For a brand new Railway volume, keep normal app startup clean and run the one-time bootstrap command instead:
+
+```bash
+npm run bootstrap
+```
+
+This runs the existing seed script against the configured `DATABASE_PATH`.
+
+Because the seed checks whether tasks already exist, it is safe to re-run and will skip if the database is already initialized.
+
+Keep this in production:
+
+```bash
+AUTO_SEED=false
+```
+
+That way normal deploys and restarts never re-seed automatically.
+
+### 4. How production works
+
+- Railway runs the root build script, which builds the React app in `client/dist`
+- The Express server serves both the API and the built frontend
+- SQLite is stored on the mounted Railway volume via `DATABASE_PATH`
+
+### Notes
+
+- Without a persistent volume, SQLite data will not survive redeploys or restarts
+- For two users sharing the app, this single-service SQLite setup is a good fit

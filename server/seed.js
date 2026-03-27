@@ -325,4 +325,8 @@ function seed() {
   console.log(`✅ Seeded ${TASKS.length} tasks, ${SUBTASKS.length} subtasks, ${WEEKLY_PLAN_ITEMS.length} weekly items, ${REWARD_RULES.length} reward rules, ${ACTIVITY_LOG.length} activity logs.`);
 }
 
-seed();
+module.exports = { seed };
+
+if (require.main === module) {
+  seed();
+}

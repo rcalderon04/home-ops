@@ -1,20 +1,44 @@
 const BASE = '/api';
+const TOKEN_KEY = 'home_ops_auth_token';
+
+export function getAuthToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAuthToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
 
 async function request(method, path, body) {
   const opts = {
     method,
     headers: { 'Content-Type': 'application/json' }
   };
+  const token = getAuthToken();
+  if (token) {
+    opts.headers.Authorization = `Bearer ${token}`;
+  }
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(BASE + path, opts);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
+    if (res.status === 401) {
+      window.dispatchEvent(new Event('home-ops-unauthorized'));
+      const authError = new Error(err.error || 'Unauthorized');
+      authError.code = 'UNAUTHORIZED';
+      throw authError;
+    }
     throw new Error(err.error || res.statusText);
   }
   return res.json();
 }
 
 export const api = {
+  // Auth
+  getAuthStatus: () => request('GET', '/auth/status'),
+  login: (password) => request('POST', '/auth/login', { password }),
+
   // Tasks
   getTasks: (params = {}) => request('GET', '/tasks?' + new URLSearchParams(params)),
   getTask: (id) => request('GET', `/tasks/${id}`),
