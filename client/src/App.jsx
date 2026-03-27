@@ -84,38 +84,40 @@ export default function App() {
   }
 
   return (
-    <div id="root">
-      <aside className="sidebar">
-        <div className="sidebar-logo">Home Ops</div>
-        <nav className="sidebar-nav">
-          {NAV.map((n) => (
-            <button
-              key={n.key}
-              className={`sidebar-link${page === n.key ? ' active' : ''}`}
-              onClick={() => navigate(n.key)}
-            >
-              <span className="sidebar-icon">{n.icon}</span>
-              {n.label}
+    <AppErrorBoundary onLogout={handleLogout}>
+      <div id="root">
+        <aside className="sidebar">
+          <div className="sidebar-logo">Home Ops</div>
+          <nav className="sidebar-nav">
+            {NAV.map((n) => (
+              <button
+                key={n.key}
+                className={`sidebar-link${page === n.key ? ' active' : ''}`}
+                onClick={() => navigate(n.key)}
+              >
+                <span className="sidebar-icon">{n.icon}</span>
+                {n.label}
+              </button>
+            ))}
+          </nav>
+          <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={handleLogout}>
+              Log Out
             </button>
-          ))}
-        </nav>
-        <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={handleLogout}>
-            Log Out
-          </button>
-          <div style={{ marginTop: 10, fontSize: 11, color: '#475569' }}>
-            Shared home dashboard
+            <div style={{ marginTop: 10, fontSize: 11, color: '#475569' }}>
+              Shared home dashboard
+            </div>
           </div>
-        </div>
-      </aside>
-      <main className="main">
-        {page === 'weekly' && <WeeklyPlanner currentWeek={currentWeek} setCurrentWeek={setCurrentWeek} navigate={navigate} />}
-        {page === 'tasks' && <TaskLibrary navigate={navigate} />}
-        {page === 'new-task' && <TaskForm editingTask={editingTask} navigate={navigate} />}
-        {page === 'dashboard' && <Dashboard />}
-        {page === 'rewards' && <Rewards />}
-      </main>
-    </div>
+        </aside>
+        <main className="main">
+          {page === 'weekly' && <WeeklyPlanner currentWeek={currentWeek} setCurrentWeek={setCurrentWeek} navigate={navigate} />}
+          {page === 'tasks' && <TaskLibrary navigate={navigate} />}
+          {page === 'new-task' && <TaskForm editingTask={editingTask} navigate={navigate} />}
+          {page === 'dashboard' && <Dashboard />}
+          {page === 'rewards' && <Rewards />}
+        </main>
+      </div>
+    </AppErrorBoundary>
   );
 }
 
@@ -168,4 +170,39 @@ function LoginScreen({ onLogin }) {
       </div>
     </div>
   );
+}
+
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error) {
+    console.error('App render error', error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="auth-shell">
+          <div className="auth-card">
+            <div className="auth-eyebrow">Something went wrong</div>
+            <h1 className="auth-title">App Error</h1>
+            <p className="auth-copy">
+              The app hit a runtime error after sign-in. The message below will help us pinpoint it.
+            </p>
+            <div className="auth-error-box">{this.state.error.message || 'Unknown error'}</div>
+            <button className="btn btn-secondary" onClick={this.props.onLogout}>Back To Login</button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }

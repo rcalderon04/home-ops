@@ -217,6 +217,11 @@ td:last-child { white-space: nowrap; }
 .auth-form { display: flex; flex-direction: column; gap: 10px; }
 .auth-input { margin-bottom: 4px; }
 .auth-error { color: var(--danger); font-size: 12px; }
+.auth-error-box {
+  background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239;
+  border-radius: 10px; padding: 12px; margin-bottom: 14px; font-size: 13px;
+  word-break: break-word;
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
