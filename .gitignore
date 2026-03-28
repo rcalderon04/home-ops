@@ -1,1 +1,7 @@
 node_modules
+client/node_modules
+server/node_modules
+client/dist
+server/home-ops.db
+server/home-ops.db-shm
+server/home-ops.db-wal
