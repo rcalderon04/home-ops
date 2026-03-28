@@ -45,6 +45,7 @@ export const api = {
   createTask: (data) => request('POST', '/tasks', data),
   updateTask: (id, data) => request('PUT', `/tasks/${id}`, data),
   deleteTask: (id) => request('DELETE', `/tasks/${id}`),
+  completeTaskNow: (id, data = {}) => request('POST', `/tasks/${id}/complete-now`, data),
 
   // Weekly planner
   getWeekly: (week) => request('GET', `/weekly?week=${week}`),

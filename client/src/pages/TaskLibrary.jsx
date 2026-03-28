@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api, formatDate, CATEGORY_OPTIONS, AREA_OPTIONS } from '../api.js';
+import { api, formatDate, CATEGORY_OPTIONS, AREA_OPTIONS, OWNER_OPTIONS } from '../api.js';
 
 export default function TaskLibrary({ navigate }) {
   const [tasks, setTasks] = useState([]);
@@ -9,6 +9,8 @@ export default function TaskLibrary({ navigate }) {
   const [filterArea, setFilterArea] = useState('');
   const [filterActive, setFilterActive] = useState(true);
   const [sortBy, setSortBy] = useState('due');
+  const [completeModalTask, setCompleteModalTask] = useState(null);
+  const [completeOwner, setCompleteOwner] = useState('Ryan');
 
   useEffect(() => { loadTasks(); }, []);
 
@@ -30,6 +32,11 @@ export default function TaskLibrary({ navigate }) {
     if (!confirm(`Delete "${task.task_name}"? This cannot be undone.`)) return;
     await api.deleteTask(task.id);
     setTasks(prev => prev.filter(t => t.id !== task.id));
+  }
+
+  async function completeNow(task, owner) {
+    const updated = await api.completeTaskNow(task.id, { owner });
+    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
   }
 
   const filtered = tasks
@@ -107,7 +114,7 @@ export default function TaskLibrary({ navigate }) {
                   <th>Est.</th>
                   <th>Owner</th>
                   <th>Status</th>
-                  <th style={{ width: 120 }}></th>
+                  <th style={{ width: 180 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -142,6 +149,11 @@ export default function TaskLibrary({ navigate }) {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => {
+                            setCompleteModalTask(task);
+                            setCompleteOwner(task.default_owner && task.default_owner !== 'Either' ? task.default_owner : 'Ryan');
+                          }} title="Complete now"
+                            style={{ color: 'var(--success)' }}>Done</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => navigate('edit-task', task)} title="Edit">✏</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => toggleActive(task)} title={task.is_active ? 'Deactivate' : 'Activate'}
                             style={{ color: task.is_active ? 'var(--text-3)' : 'var(--success)' }}>
@@ -156,6 +168,46 @@ export default function TaskLibrary({ navigate }) {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {completeModalTask && (
+        <div className="modal-overlay" onClick={() => setCompleteModalTask(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">Complete Now</div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setCompleteModalTask(null)}>Close</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ fontSize: 14 }}>
+                Who completed <strong>{completeModalTask.task_name}</strong>?
+              </div>
+              <div className="form-group">
+                <label className="form-label">Completed By</label>
+                <select
+                  className="form-select"
+                  value={completeOwner}
+                  onChange={e => setCompleteOwner(e.target.value)}
+                >
+                  {OWNER_OPTIONS.filter(owner => owner !== 'Either').map(owner => (
+                    <option key={owner} value={owner}>{owner}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setCompleteModalTask(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  await completeNow(completeModalTask, completeOwner);
+                  setCompleteModalTask(null);
+                }}
+              >
+                Mark Complete
+              </button>
+            </div>
           </div>
         </div>
       )}

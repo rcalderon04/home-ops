@@ -18,6 +18,45 @@ router.get('/', (req, res) => {
   res.json(tasks);
 });
 
+// POST /api/tasks/:id/complete-now
+router.post('/:id/complete-now', (req, res) => {
+  const db = getDb();
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const today = new Date().toISOString().split('T')[0];
+  const owner = req.body.owner || task.default_owner || 'Either';
+  const nextDueDate = calculateNextDueDate(task, today);
+
+  const tx = db.transaction(() => {
+    db.prepare(`
+      UPDATE tasks
+      SET last_completed = ?, next_due_date = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(today, nextDueDate, task.id);
+
+    db.prepare(`
+      INSERT INTO activity_log (
+        id, log_date, task_id, plan_item_id, project_id, action,
+        minutes_spent, points, owner, products_used, outcome, notes
+      )
+      VALUES (?, ?, ?, NULL, NULL, 'Completed task', ?, ?, ?, NULL, ?, NULL)
+    `).run(
+      generateNextLogId(db),
+      today,
+      task.id,
+      task.est_minutes || 0,
+      task.points || 0,
+      owner,
+      'Completed from task library'
+    );
+  });
+
+  tx();
+
+  res.json(db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id));
+});
+
 // GET /api/tasks/:id
 router.get('/:id', (req, res) => {
   const db = getDb();
@@ -89,6 +128,51 @@ function generateNextId(db) {
   if (!last) return 'T-001';
   const num = parseInt(last.id.replace('T-', ''), 10) + 1;
   return `T-${String(num).padStart(3, '0')}`;
+}
+
+function generateNextLogId(db) {
+  const last = db.prepare("SELECT id FROM activity_log ORDER BY id DESC LIMIT 1").get();
+  if (!last) return 'L-001';
+  const num = parseInt(last.id.replace('L-', ''), 10) + 1;
+  return `L-${String(num).padStart(3, '0')}`;
+}
+
+function calculateNextDueDate(task, fromDate) {
+  if (task.cadence_type === 'One-off') return null;
+
+  const interval = Number.parseInt(task.cadence_interval, 10) || 1;
+  const date = new Date(`${fromDate}T00:00:00Z`);
+
+  if (task.cadence_type === 'Weekly') {
+    date.setUTCDate(date.getUTCDate() + (7 * interval));
+    return toDateString(date);
+  }
+
+  if (task.cadence_type === 'Biweekly') {
+    date.setUTCDate(date.getUTCDate() + (14 * interval));
+    return toDateString(date);
+  }
+
+  if (task.cadence_type === 'Monthly') {
+    date.setUTCMonth(date.getUTCMonth() + interval);
+    return toDateString(date);
+  }
+
+  if (task.cadence_type === 'Quarterly') {
+    date.setUTCMonth(date.getUTCMonth() + (3 * interval));
+    return toDateString(date);
+  }
+
+  if (task.cadence_type === 'Yearly') {
+    date.setUTCFullYear(date.getUTCFullYear() + interval);
+    return toDateString(date);
+  }
+
+  return task.next_due_date || task.target_date || null;
+}
+
+function toDateString(date) {
+  return date.toISOString().split('T')[0];
 }
 
 function sanitizeTask(body) {
